@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CineMatch – Movie Recommender</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0d0d12;
+    --surface: #16161e;
+    --surface2: #1e1e28;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0eff6;
+    --muted: #8b8a9a;
+    --dim: #55546a;
+    --gold: #f5c542;
+    --gold-dim: rgba(245,197,66,0.15);
+    --teal: #2dd4bf;
+    --teal-dim: rgba(45,212,191,0.12);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167,139,250,0.12);
+    --red: #f87171;
+    --accent: #7c6af7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 28px 32px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: linear-gradient(180deg, rgba(124,106,247,0.08) 0%, transparent 100%);
+  }
+  header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: -0.5px;
+  }
+  header .badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 99px;
+    background: var(--purple-dim);
+    color: var(--purple);
+    border: 1px solid rgba(167,139,250,0.25);
+  }
+
+  /* ── Stats bar ── */
+  #stats-bar {
+    display: flex;
+    gap: 10px;
+    padding: 14px 32px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .stat-chip {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 14px;
+  }
+  .stat-chip .num { font-size: 15px; font-weight: 600; color: var(--text); }
+  .stat-chip .lbl { font-size: 11px; color: var(--muted); }
+  .stat-chip.user-stat .num { color: var(--teal); }
+
+  /* ── Tabs ── */
+  #tabs {
+    display: flex;
+    gap: 4px;
+    padding: 14px 32px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 8px 18px;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    border: 1px solid transparent;
+    border-bottom: none;
+    background: transparent;
+    transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); background: var(--surface); }
+  .tab.active {
+    color: var(--text);
+    background: var(--surface);
+    border-color: var(--border);
+    border-bottom: 1px solid var(--surface);
+    margin-bottom: -1px;
+  }
+  #get-reco-btn {
+    margin-left: auto;
+    padding: 7px 18px;
+    border-radius: 8px;
+    border: none;
+    background: var(--accent);
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    align-self: flex-end;
+    margin-bottom: 2px;
+  }
+  #get-reco-btn:hover { opacity: 0.88; }
+  #get-reco-btn:active { transform: scale(0.97); }
+  #get-reco-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── Main content ── */
+  #content { padding: 20px 32px 40px; }
+
+  /* ── Search / filter bar ── */
+  #filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  #filter-bar input, #filter-bar select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #filter-bar input { flex: 1; min-width: 180px; }
+  #filter-bar input:focus, #filter-bar select:focus { border-color: var(--accent); }
+  #filter-bar select option { background: var(--surface); }
+
+  /* ── Movie grid ── */
+  .movie-grid{
+    display:grid;
+    grid-template-columns:
+    repeat(auto-fill,minmax(260px,1fr));
+    gap:18px;
+}
+  /* ── Movie card ── */
+  .movie-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    transition: border-color 0.15s, transform 0.15s;
+    cursor: default;
+  }
+  .movie-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+
+  .card-top { display: flex; align-items: flex-start; gap: 10px; }
+  .card-poster { font-size: 34px; line-height: 1; flex-shrink: 0; }
+  .card-meta { flex: 1; min-width: 0; }
+  .card-title { font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--text); }
+  .card-year  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .card-score {
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .card-score .score-lbl { font-size: 10px; color: var(--dim); }
+  .card-score .score-val { font-size: 16px; font-weight: 600; color: var(--teal); }
+  .card-score .sim-val   { font-size: 16px; font-weight: 600; color: var(--purple); }
+
+  .genre-row { display: flex; flex-wrap: wrap; gap: 4px; }
+  .genre-pill {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  .card-bottom { display: flex; align-items: center; justify-content: space-between; }
+
+  /* Stars */
+  .stars { display: flex; gap: 2px; cursor: pointer; }
+  .star {
+    font-size: 18px;
+    color: var(--dim);
+    transition: color 0.1s;
+    user-select: none;
+  }
+  .star.filled { color: var(--gold); }
+  .star.hover  { color: var(--gold); opacity: 0.7; }
+
+  .similar-btn {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.12s;
+  }
+  .similar-btn:hover { background: var(--surface2); color: var(--text); }
+
+  .rated-tag {
+    font-size: 11px;
+    color: var(--gold);
+  }
+
+  /* ── Similar panel ── */
+  #similar-panel {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 18px;
+  }
+  #similar-panel.visible { display: block; }
+  #similar-panel .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  #similar-panel .panel-title { font-size: 14px; font-weight: 600; }
+  #similar-panel .close-btn {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: 20px; line-height: 1; padding: 0;
+  }
+
+  /* ── Hint / info banners ── */
+  .banner {
+    border-radius: 10px;
+    padding: 11px 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  .banner-info { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
+  .banner-success { background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(45,212,191,0.2); }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--muted);
+  }
+  .empty-state .emoji { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; margin-bottom: 18px; }
+  .empty-state button {
+    padding: 9px 22px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* ── Algorithm note ── */
+  #algo-note {
+    margin-top: 28px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  #algo-note strong { color: var(--text); font-weight: 600; }
+
+  /* ── Loading dots ── */
+  .loading { color: var(--muted); font-size: 13px; padding: 30px 0; text-align: center; }
+
+  /* ── Result count ── */
+  .result-count { font-size: 12px; color: var(--dim); margin-bottom: 12px; }
+  .hero{
+    padding:60px 32px;
+    text-align:center;
+    background:
+    linear-gradient(
+        135deg,
+        rgba(124,106,247,.15),
+        rgba(45,212,191,.08)
+    );
+    border-bottom:1px solid var(--border);
+}
+
+.hero h2{
+    font-size:42px;
+    margin-bottom:12px;
+}
+
+.hero p{
+    color:var(--muted);
+    max-width:650px;
+    margin:auto;
+}
+.card-description{
+    color:var(--muted);
+    font-size:12px;
+    line-height:1.5;
+    margin-top:8px;
+
+    display:-webkit-box;
+    -webkit-line-clamp:3;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+}
+.db-panel{
+    display:flex;
+    gap:15px;
+    margin:20px 0;
+}
+
+.db-box{
+    flex:1;
+    background:var(--surface);
+    padding:18px;
+    border-radius:12px;
+    border:1px solid var(--border);
+}
+@media(max-width:768px){
+
+    header{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    #tabs{
+        overflow-x:auto;
+        white-space:nowrap;
+    }
+
+    #filter-bar{
+        flex-direction:column;
+    }
+
+    .hero h2{
+        font-size:30px;
+    }
+
+    .db-panel{
+        flex-direction:column;
+    }
+
+}
+</style>
+</head>
+<body>
+
+<header>
+  <section class="hero">
+    <div class="hero-content">
+        <h2>Discover Your Next Favorite Movie</h2>
+        <p>
+            Rate movies, explore recommendations,
+            and discover films similar to your taste.
+        </p>
+    </div>
+</section>
+  <span style="font-size:32px">🎬</span>
+  <div>
+    <h1>CineMatch</h1>
+  </div>
+  <span class="badge">Collaborative Filtering · Cosine Similarity</span>
+</header>
+
+<div id="stats-bar">
+  <div class="stat-chip"><span class="num" id="s-users">—</span><span class="lbl">users</span></div>
+  <div class="stat-chip"><span class="num" id="s-movies">—</span><span class="lbl">movies</span></div>
+  <div class="stat-chip"><span class="num" id="s-ratings">—</span><span class="lbl">total ratings</span></div>
+  <div class="stat-chip"><span class="num" id="s-density">—</span><span class="lbl">matrix density</span></div>
+  <div class="stat-chip user-stat" id="my-stat" style="display:none">
+    <span class="num" id="s-myratings">0</span><span class="lbl">your ratings</span>
+  </div>
+</div>
+<div id="top-rated-section">
+    <h3>🔥 Top Rated Movies</h3>
+    <div id="top-rated-grid"
+         class="movie-grid">
+    </div>
+</div>
+
+<div id="tabs">
+  <button class="tab active" onclick="switchTab('browse')">Browse movies</button>
+  <button class="tab" onclick="switchTab('rated')" id="tab-rated">My ratings</button>
+  <button class="tab" onclick="switchTab('recommend')" id="tab-reco">Recommendations</button>
+  <button id="get-reco-btn" disabled onclick="getRecommendations()">Get recommendations ↗</button>
+</div>
+<div class="db-panel">
+
+    <div class="db-box">
+        SQLite Database
+    </div>
+
+    <div class="db-box">
+        Collaborative Filtering
+    </div>
+
+    <div class="db-box">
+        Real-Time Ratings
+    </div>
+
+</div>
+<div id="content">
+
+  <!-- Browse tab -->
+  <div id="pane-browse">
+    <div id="hint-banner" class="banner banner-info">
+      Rate at least 2 movies with ★ to unlock personalised recommendations using user-based collaborative filtering.
+    </div>
+    <div id="filter-bar">
+      <input
+id="search-input"
+placeholder="Search by movie title..."
+onkeyup="searchMovie()"
+/>
+      <select id="genre-select" onchange="renderBrowse()">
+        <option value="All">All genres</option>
+      </select>
+    </div>
+    <p class="result-count" id="result-count"></p>
+    <div id="similar-panel">
+      <div class="panel-header">
+        <p class="panel-title" id="similar-title"></p>
+        <button class="close-btn" onclick="closeSimilar()">✕</button>
+      </div>
+      <div class="movie-grid" id="similar-grid"></div>
+    </div>
+    <div class="movie-grid" id="browse-grid"></div>
+  </div>
+  
+
+  <!-- Rated tab -->
+  <div id="pane-rated" style="display:none">
+    <div class="movie-grid" id="rated-grid"></div>
+  </div>
+
+  <!-- Reco tab -->
+  <div id="pane-recommend" style="display:none">
+    <div class="movie-grid" id="reco-grid"></div>
+  </div>
+
+  <div id="algo-note">
+    <strong>How it works —</strong>
+    <strong>User-based CF:</strong> Builds a sparse user×movie rating matrix, computes cosine similarity between your row and all seed users,
+    then predicts scores for unseen films as a similarity-weighted sum of neighbour ratings.
+    <strong>Item-based CF:</strong> Transposes the matrix to get movie×user vectors and finds films with similar rating patterns.
+    Match % = normalised weighted score.
+  </div>
+</div>
+
+<script>
+const API = 'http://127.0.0.1:5000';
+let userId = null;
+let allMovies = [];
+let userRatings = {};   // movieId -> rating
+
+// ── Bootstrap ─────────────────────────────────────────────────
+async function init() {
+
+  const [moviesRes, statsRes, userRes] =
+  await Promise.all([
+      fetch(`${API}/movies`).then(r=>r.json()),
+      fetch(`${API}/stats`).then(r=>r.json()),
+      fetch(`${API}/user/create`,{method:'POST'}).then(r=>r.json())
+  ]);
+
+  allMovies = moviesRes;
+  userId = userRes.user_id;
+
+  updateStats(statsRes);
+  buildGenreFilter();
+  renderBrowse();
+
+  await loadTopRated();
+}
+
+init();
+
+function updateStats(s) {
+  document.getElementById('s-users').textContent   = s.total_users;
+  document.getElementById('s-movies').textContent  = s.total_movies;
+  document.getElementById('s-ratings').textContent = s.total_ratings;
+  document.getElementById('s-density').textContent = s.matrix_density + '%';
+}
+
+function buildGenreFilter() {
+  const genres = [...new Set(allMovies.flatMap(m => m.genre.split(', ').filter(Boolean)))].sort();
+  const sel = document.getElementById('genre-select');
+  genres.forEach(g => { const o = document.createElement('option'); o.value = g; o.textContent = g; sel.appendChild(o); });
+}
+
+// ── Tabs ──────────────────────────────────────────────────────
+function switchTab(name) {
+  ['browse','rated','recommend'].forEach(t => {
+    document.getElementById(`pane-${t}`).style.display = t === name ? '' : 'none';
+    document.querySelectorAll('.tab')[['browse','rated','recommend'].indexOf(t)].classList.toggle('active', t === name);
+  });
+  if (name === 'rated')    renderRated();
+  if (name === 'recommend') { /* reco already loaded or shows empty */ }
+}
+
+// ── Star widget ───────────────────────────────────────────────
+function starsHTML(movieId, currentRating) {
+  return `<div class="stars" id="stars-${movieId}">` +
+    [1,2,3,4,5].map(s =>
+      `<span class="star ${s <= currentRating ? 'filled' : ''}"
+        onmouseenter="hoverStars(${movieId},${s})"
+        onmouseleave="unhoverStars(${movieId},${currentRating})"
+        onclick="rateMovie(${movieId},${s})">★</span>`
+    ).join('') + `</div>`;
+}
+
+function hoverStars(mid, val) {
+  document.querySelectorAll(`#stars-${mid} .star`).forEach((el, i) => {
+    el.className = 'star ' + (i < val ? 'hover' : '');
+  });
+}
+function unhoverStars(mid, cur) {
+  document.querySelectorAll(`#stars-${mid} .star`).forEach((el, i) => {
+    el.className = 'star ' + (i < cur ? 'filled' : '');
+  });
+}
+
+// ── Rate a movie ──────────────────────────────────────────────
+async function rateMovie(movieId, rating) {
+  await fetch(`${API}/user/${userId}/rate`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({movie_id: movieId, rating}),
+  });
+  userRatings[movieId] = rating;
+
+  // Update stars wherever visible
+  document.querySelectorAll(`#stars-${movieId} .star`).forEach((el, i) => {
+    el.className = 'star ' + (i < rating ? 'filled' : '');
+    el.onmouseleave = () => unhoverStars(movieId, rating);
+  });
+  // Update rated-tag
+  document.querySelectorAll(`.rated-tag[data-mid="${movieId}"]`).forEach(el => {
+    el.textContent = `You rated ${rating} ★`;
+  });
+
+  const count = Object.keys(userRatings).length;
+  document.getElementById('s-myratings').textContent = count;
+  document.getElementById('my-stat').style.display = '';
+  document.getElementById('tab-rated').textContent = `My ratings (${count})`;
+  document.getElementById('get-reco-btn').disabled = count < 2;
+  if (count === 2) document.getElementById('hint-banner').style.display = 'none';
+}
+
+// ── Build a card ──────────────────────────────────────────────
+function buildCard(movie, opts = {}) {
+  const genres =
+(movie.genre || '')
+.split(',')
+.map(g=>g.trim())
+.filter(Boolean);
+  const rated  = userRatings[movie.id] || 0;
+
+  const scoreHTML = movie.score !== undefined
+    ? `<div class="card-score"><div class="score-lbl">match</div><div class="score-val">${Math.round(movie.score*10)}%</div></div>`
+    : movie.similarity !== undefined
+    ? `<div class="card-score"><div class="score-lbl">similar</div><div class="sim-val">${Math.round(movie.similarity*100)}%</div></div>`
+    : '';
+
+  const similarBtn = opts.showSimilar
+    ? `<button class="similar-btn" onclick="openSimilar(${movie.id})">similar ↗</button>`
+    : '';
+
+  return `
+    <div class="movie-card">
+      <div class="card-top">
+        <span class="card-poster">${movie.poster}</span>
+        <div class="card-meta">
+          <div class="card-title">${movie.title}</div>
+          <div class="card-year">${movie.year}</div>
+        </div>
+        ${scoreHTML}
+      </div>
+      <div class="genre-row">${genres.map(g => `<span class="genre-pill">${g}</span>`).join('')}</div>
+      <div class="card-description">
+    ${movie.overview || ''}
+</div>
+      <div class="card-bottom">
+        ${starsHTML(movie.id, rated)}
+        ${similarBtn}
+      </div>
+      ${rated ? `<div class="rated-tag" data-mid="${movie.id}">You rated ${rated} ★</div>` : `<div class="rated-tag" data-mid="${movie.id}" style="display:none"></div>`}
+    </div>`;
+}
+
+// ── Browse ────────────────────────────────────────────────────
+function renderBrowse() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const g = document.getElementById('genre-select').value;
+  const filtered = allMovies.filter(m =>
+    m.title.toLowerCase().includes(q) &&
+    (g === 'All' || m.genre.includes(g))
+  );
+  document.getElementById('result-count').textContent = `${filtered.length} movies`;
+  document.getElementById('browse-grid').innerHTML = filtered.map(m => buildCard(m, {showSimilar:true})).join('');
+}
+
+// ── Rated tab ─────────────────────────────────────────────────
+function renderRated() {
+  const rated = allMovies.filter(m => userRatings[m.id])
+    .sort((a,b) => (userRatings[b.id]||0) - (userRatings[a.id]||0));
+  if (!rated.length) {
+    document.getElementById('rated-grid').innerHTML =
+      `<div class="empty-state" style="grid-column:1/-1">
+        <div class="emoji">🎬</div>
+        <p>No ratings yet — go browse and rate some movies</p>
+      </div>`;
+    return;
+  }
+  document.getElementById('rated-grid').innerHTML = rated.map(m => buildCard(m, {showSimilar:true})).join('');
+}
+async function loadTopRated(){
+
+    const data =
+    await fetch(
+        `${API}/top-rated`
+    ).then(r=>r.json());
+
+    document
+    .getElementById("top-rated-grid")
+    .innerHTML =
+    data.map(
+        m=>buildCard(m)
+    ).join("");
+}
+// ── Recommendations ───────────────────────────────────────────
+async function getRecommendations() {
+  const btn = document.getElementById('get-reco-btn');
+  btn.textContent = 'Finding…';
+  btn.disabled = true;
+  const data = await fetch(`${API}/user/${userId}/recommend`).then(r => r.json());
+  btn.textContent = 'Get recommendations ↗';
+  btn.disabled = Object.keys(userRatings).length < 2;
+
+  switchTab('recommend');
+  const grid = document.getElementById('reco-grid');
+  if (!data.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <div class="emoji">🤖</div><p>No recommendations yet — rate more movies</p></div>`;
+    return;
+  }
+  grid.innerHTML = `
+    <div class="banner banner-success" style="grid-column:1/-1">
+      Found ${data.length} recommendations using user-based collaborative filtering.
+      Match % = cosine similarity × predicted rating (normalised).
+    </div>` +
+    data.map(m => buildCard(m, {showSimilar:true})).join('');
+}
+
+// ── Similar panel ─────────────────────────────────────────────
+async function openSimilar(movieId) {
+  const panel = document.getElementById('similar-panel');
+  if(!movie) return;
+  const movie = allMovies.find(m => m.id === movieId);
+  document.getElementById('similar-title').textContent =
+    `Movies similar to ${movie.poster} ${movie.title}`;
+  document.getElementById('similar-grid').innerHTML = '<p class="loading">Finding similar movies…</p>';
+  panel.classList.add('visible');
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  const data = await fetch(`${API}/movie/${movieId}/similar`).then(r => r.json());
+  document.getElementById('similar-grid').innerHTML = data.map(m => buildCard(m)).join('');
+}
+
+function closeSimilar() {
+  document.getElementById('similar-panel').classList.remove('visible');
+}
+async function searchMovie(){
+
+    const q =
+    document
+    .getElementById("search-input")
+    .value;
+
+    if(q.length===0){
+        renderBrowse();
+        return;
+    }
+
+    const res =
+    await fetch(
+        `${API}/movies/search?q=${q}`
+    );
+
+    const data =
+    await res.json();
+
+    document
+    .getElementById("browse-grid")
+    .innerHTML =
+    data.map(
+        m=>buildCard(m,{showSimilar:true})
+    ).join("");
+}
+   document.getElementById("result-count")
+   .textContent =
+   `${data.length} movies`;
+</script>
+</body>
+</html>
