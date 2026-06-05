@@ -24,7 +24,9 @@ def get_db():
 
 
 def initialize_database():
-    conn = get_connection()
+
+    conn = get_db()
+
     cur = conn.cursor()
 
     cur.execute("""
@@ -45,35 +47,37 @@ def initialize_database():
     )
     """)
 
-    cur.execute("SELECT COUNT(*) FROM movies")
+    cur.execute(
+        "SELECT COUNT(*) FROM movies"
+    )
+
     count = cur.fetchone()[0]
 
     if count == 0:
-        sample_movies = [
+
+        movies = [
             ("Inception","Sci-Fi","Dreams inside dreams"),
             ("Interstellar","Sci-Fi","Space exploration and time"),
             ("The Dark Knight","Action","Batman vs Joker"),
             ("Avatar","Adventure","Pandora world"),
-            ("Titanic","Romance","Love story on ship"),
-            ("Joker","Drama","Origin of Joker"),
-            ("Avengers Endgame","Action","Marvel heroes unite"),
-            ("Doctor Strange","Fantasy","Mystic arts"),
-            ("The Matrix","Sci-Fi","Virtual reality"),
-            ("John Wick","Action","Revenge thriller")
+            ("Titanic","Romance","Love story on ship")
         ]
 
         cur.executemany(
-            "INSERT INTO movies(title,genre,description) VALUES(?,?,?)",
-            sample_movies
+            """
+            INSERT INTO movies
+            (title,genre,description)
+            VALUES(?,?,?)
+            """,
+            movies
         )
 
     conn.commit()
     conn.close()
 
-
 def recommend(movie_title):
 
-    conn = get_connection()
+    conn = get_db()
 
     df = pd.read_sql_query(
         "SELECT * FROM movies",
@@ -114,19 +118,20 @@ def recommend(movie_title):
 @app.route("/")
 def home():
 
-    conn = get_connection()
+    conn = get_db()
 
     movies = conn.execute(
         "SELECT * FROM movies"
     ).fetchall()
 
     trending = conn.execute("""
-        SELECT movies.title,
-       AVG(ratings.rating) avg_rating
+        SELECT
+    movies.title,
+    AVG(ratings.rating) AS avg_rating
 FROM ratings
 JOIN movies
-ON movies.title = ratings.movie
-GROUP BY movies.title
+ON movies.id = ratings.movie_id
+GROUP BY movies.id
 ORDER BY avg_rating DESC
 LIMIT 5
     """).fetchall()
@@ -134,10 +139,10 @@ LIMIT 5
     conn.close()
 
     return render_template(
-        "index.html",
-        movies=movies,
-        trending=trending
-    )
+    "index.html",
+    movies=movies,
+    trending=trending
+)
 
 
 @app.route("/search")
@@ -145,7 +150,7 @@ def search():
 
     query = request.args.get("query","")
 
-    conn = get_connection()
+    conn = get_db()
 
     movies = conn.execute(
         "SELECT * FROM movies WHERE title LIKE ?",
@@ -176,7 +181,7 @@ def rate():
     rating = request.form["rating"]
     review = request.form["review"]
 
-    conn = get_connection()
+    conn = get_db()
 
     conn.execute("""
         INSERT INTO ratings(
@@ -191,10 +196,10 @@ def rate():
     conn.close()
 
     return jsonify({"status":"success"})
-
+initialize_database()
 
 if __name__ == "__main__":
-    initialize_database()
+   
     import os
     app.run(
         host="0.0.0.0",
